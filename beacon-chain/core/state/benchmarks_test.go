@@ -1,17 +1,15 @@
-package benchmarks
+package state
 
 import (
 	"context"
-	"io/ioutil"
 	"testing"
 
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/gogo/protobuf/proto"
-	ethpb "github.com/prysmaticlabs/ethereumapis/eth/v1alpha1"
 	"github.com/prysmaticlabs/go-ssz"
 	"github.com/prysmaticlabs/prysm/beacon-chain/core/helpers"
-	"github.com/prysmaticlabs/prysm/beacon-chain/core/state"
 	pb "github.com/prysmaticlabs/prysm/proto/beacon/p2p/v1"
+	"github.com/prysmaticlabs/prysm/shared/benchutil"
+	"github.com/prysmaticlabs/prysm/shared/featureconfig"
 	"github.com/prysmaticlabs/prysm/shared/params"
 	"github.com/prysmaticlabs/prysm/shared/stateutil"
 )
@@ -19,30 +17,29 @@ import (
 var runAmount = 25
 
 func TestBenchmarkExecuteStateTransition(t *testing.T) {
-	t.Skip("TODO(4098): Regenerate test data with v0.9.2 spec")
-	SetConfig()
-	beaconState, err := beaconState1Epoch()
+	benchutil.SetBenchmarkConfig()
+	beaconState, err := benchutil.PreGenState1Epoch()
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, err := fullBlock()
+	block, err := benchutil.PreGenFullBlock()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := state.ExecuteStateTransition(context.Background(), beaconState, block); err != nil {
+	if _, err := ExecuteStateTransition(context.Background(), beaconState, block); err != nil {
 		t.Fatalf("failed to process block, benchmarks will fail: %v", err)
 	}
 }
 
 func BenchmarkExecuteStateTransition_FullBlock(b *testing.B) {
-	SetConfig()
-	beaconState, err := beaconState1Epoch()
+	benchutil.SetBenchmarkConfig()
+	beaconState, err := benchutil.PreGenState1Epoch()
 	if err != nil {
 		b.Fatal(err)
 	}
 	cleanStates := clonedStates(beaconState)
-	block, err := fullBlock()
+	block, err := benchutil.PreGenFullBlock()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -50,21 +47,26 @@ func BenchmarkExecuteStateTransition_FullBlock(b *testing.B) {
 	b.N = runAmount
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := state.ExecuteStateTransition(context.Background(), cleanStates[i], block); err != nil {
+		if _, err := ExecuteStateTransition(context.Background(), cleanStates[i], block); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkExecuteStateTransition_WithCache(b *testing.B) {
-	SetConfig()
+	config := &featureconfig.Flags{
+		EnableProposerIndexCache: true,
+		EnableAttestationCache:   true,
+	}
+	featureconfig.Init(config)
+	benchutil.SetBenchmarkConfig()
 
-	beaconState, err := beaconState1Epoch()
+	beaconState, err := benchutil.PreGenState1Epoch()
 	if err != nil {
 		b.Fatal(err)
 	}
 	cleanStates := clonedStates(beaconState)
-	block, err := fullBlock()
+	block, err := benchutil.PreGenFullBlock()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -78,22 +80,27 @@ func BenchmarkExecuteStateTransition_WithCache(b *testing.B) {
 	}
 	beaconState.Slot = currentSlot
 	// Run the state transition once to populate the cache.
-	if _, err := state.ExecuteStateTransition(context.Background(), beaconState, block); err != nil {
+	if _, err := ExecuteStateTransition(context.Background(), beaconState, block); err != nil {
 		b.Fatalf("failed to process block, benchmarks will fail: %v", err)
 	}
 
 	b.N = runAmount
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := state.ExecuteStateTransition(context.Background(), cleanStates[i], block); err != nil {
+		if _, err := ExecuteStateTransition(context.Background(), cleanStates[i], block); err != nil {
 			b.Fatalf("failed to process block, benchmarks will fail: %v", err)
 		}
 	}
 }
 
 func BenchmarkProcessEpoch_2FullEpochs(b *testing.B) {
-	SetConfig()
-	beaconState, err := beaconState2FullEpochs()
+	config := &featureconfig.Flags{
+		EnableProposerIndexCache: true,
+		EnableAttestationCache:   true,
+	}
+	featureconfig.Init(config)
+	benchutil.SetBenchmarkConfig()
+	beaconState, err := benchutil.PreGenState2FullEpochs()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -113,14 +120,15 @@ func BenchmarkProcessEpoch_2FullEpochs(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// ProcessEpochPrecompute is the optimized version of process epoch. It's enabled by default
 		// at run time.
-		if _, err := state.ProcessEpochPrecompute(context.Background(), cleanStates[i]); err != nil {
+		b.Log(i)
+		if _, err := ProcessEpochPrecompute(context.Background(), cleanStates[i]); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkHashTreeRoot_FullState(b *testing.B) {
-	beaconState, err := beaconState2FullEpochs()
+	beaconState, err := benchutil.PreGenState2FullEpochs()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -135,7 +143,7 @@ func BenchmarkHashTreeRoot_FullState(b *testing.B) {
 }
 
 func BenchmarkHashTreeRootState_FullState(b *testing.B) {
-	beaconState, err := beaconState2FullEpochs()
+	beaconState, err := benchutil.PreGenState2FullEpochs()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -160,52 +168,4 @@ func clonedStates(beaconState *pb.BeaconState) []*pb.BeaconState {
 		clonedStates[i] = proto.Clone(beaconState).(*pb.BeaconState)
 	}
 	return clonedStates
-}
-
-func beaconState1Epoch() (*pb.BeaconState, error) {
-	path, err := bazel.Runfile(BState1EpochFileName)
-	if err != nil {
-		return nil, err
-	}
-	beaconBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	beaconState := &pb.BeaconState{}
-	if err := ssz.Unmarshal(beaconBytes, beaconState); err != nil {
-		return nil, err
-	}
-	return beaconState, nil
-}
-
-func beaconState2FullEpochs() (*pb.BeaconState, error) {
-	path, err := bazel.Runfile(BState2EpochFileName)
-	if err != nil {
-		return nil, err
-	}
-	beaconBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	beaconState := &pb.BeaconState{}
-	if err := ssz.Unmarshal(beaconBytes, beaconState); err != nil {
-		return nil, err
-	}
-	return beaconState, nil
-}
-
-func fullBlock() (*ethpb.SignedBeaconBlock, error) {
-	path, err := bazel.Runfile(FullBlockFileName)
-	if err != nil {
-		return nil, err
-	}
-	blockBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	beaconBlock := &ethpb.SignedBeaconBlock{}
-	if err := ssz.Unmarshal(blockBytes, beaconBlock); err != nil {
-		return nil, err
-	}
-	return beaconBlock, nil
 }
