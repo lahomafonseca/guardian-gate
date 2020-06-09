@@ -14,6 +14,7 @@ import (
 	"github.com/prysmaticlabs/go-bitfield"
 	mockChain "github.com/prysmaticlabs/prysm/beacon-chain/blockchain/testing"
 	"github.com/prysmaticlabs/prysm/beacon-chain/cache"
+	"github.com/prysmaticlabs/prysm/beacon-chain/core/helpers"
 	dbtest "github.com/prysmaticlabs/prysm/beacon-chain/db/testing"
 	p2ptest "github.com/prysmaticlabs/prysm/beacon-chain/p2p/testing"
 	"github.com/prysmaticlabs/prysm/beacon-chain/state/stateutil"
@@ -30,7 +31,8 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 	p := p2ptest.NewTestP2P(t)
 	db := dbtest.SetupDB(t)
 	chain := &mockChain.ChainService{
-		Genesis:          time.Now().Add(time.Duration(-64*int64(params.BeaconConfig().SecondsPerSlot)) * time.Second), // 64 slots ago
+		// 1 slot ago.
+		Genesis:          time.Now().Add(time.Duration(-1*int64(params.BeaconConfig().SecondsPerSlot)) * time.Second),
 		ValidatorsRoot:   [32]byte{'A'},
 		ValidAttestation: true,
 	}
@@ -55,7 +57,7 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 
 	blk := &ethpb.SignedBeaconBlock{
 		Block: &ethpb.BeaconBlock{
-			Slot: 55,
+			Slot: 1,
 		},
 	}
 	if err := db.SaveBlock(ctx, blk); err != nil {
@@ -67,10 +69,15 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	savedState := testutil.NewBeaconState()
+	validators := uint64(64)
+	savedState, keys := testutil.DeterministicGenesisState(t, validators)
+	if err := savedState.SetSlot(1); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.SaveState(context.Background(), savedState, validBlockRoot); err != nil {
 		t.Fatal(err)
 	}
+	chain.State = savedState
 
 	tests := []struct {
 		name                      string
@@ -80,31 +87,35 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 		want                      bool
 	}{
 		{
-			name: "validAttestationSignature",
+			name: "valid attestation signature",
 			msg: &ethpb.Attestation{
 				AggregationBits: bitfield.Bitlist{0b1010},
 				Data: &ethpb.AttestationData{
 					BeaconBlockRoot: validBlockRoot[:],
-					CommitteeIndex:  1,
-					Slot:            63,
+					CommitteeIndex:  0,
+					Slot:            1,
+					Target: &ethpb.Checkpoint{
+						Epoch: 0,
+						Root:  validBlockRoot[:],
+					},
 				},
 			},
-			topic:                     fmt.Sprintf("/eth2/%x/committee_index1_beacon_attestation", digest),
+			topic:                     fmt.Sprintf("/eth2/%x/beacon_attestation_1", digest),
 			validAttestationSignature: true,
 			want:                      true,
 		},
 		{
-			name: "alreadySeen",
+			name: "already seen",
 			msg: &ethpb.Attestation{
 				AggregationBits: bitfield.Bitlist{0b1010},
 				Data: &ethpb.AttestationData{
 					BeaconBlockRoot: validBlockRoot[:],
-					CommitteeIndex:  1,
-					Slot:            63,
+					CommitteeIndex:  0,
+					Slot:            1,
 					Target:          &ethpb.Checkpoint{},
 				},
 			},
-			topic:                     fmt.Sprintf("/eth2/%x/committee_index1_beacon_attestation", digest),
+			topic:                     fmt.Sprintf("/eth2/%x/beacon_attestation_1", digest),
 			validAttestationSignature: true,
 			want:                      false,
 		},
@@ -115,11 +126,11 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 				Data: &ethpb.AttestationData{
 					BeaconBlockRoot: validBlockRoot[:],
 					CommitteeIndex:  2,
-					Slot:            63,
+					Slot:            1,
 					Target:          &ethpb.Checkpoint{},
 				},
 			},
-			topic:                     fmt.Sprintf("/eth2/%x/committee_index3_beacon_attestation", digest),
+			topic:                     fmt.Sprintf("/eth2/%x/beacon_attestation_2", digest),
 			validAttestationSignature: true,
 			want:                      false,
 		},
@@ -130,11 +141,11 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 				Data: &ethpb.AttestationData{
 					BeaconBlockRoot: validBlockRoot[:],
 					CommitteeIndex:  1,
-					Slot:            63,
+					Slot:            1,
 					Target:          &ethpb.Checkpoint{},
 				},
 			},
-			topic:                     fmt.Sprintf("/eth2/%x/committee_index1_beacon_attestation", digest),
+			topic:                     fmt.Sprintf("/eth2/%x/beacon_attestation_1", digest),
 			validAttestationSignature: true,
 			want:                      false,
 		},
@@ -145,11 +156,11 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 				Data: &ethpb.AttestationData{
 					BeaconBlockRoot: bytesutil.PadTo([]byte("missing"), 32),
 					CommitteeIndex:  1,
-					Slot:            63,
+					Slot:            1,
 					Target:          &ethpb.Checkpoint{},
 				},
 			},
-			topic:                     fmt.Sprintf("/eth2/%x/committee_index1_beacon_attestation", digest),
+			topic:                     fmt.Sprintf("/eth2/%x/beacon_attestation_1", digest),
 			validAttestationSignature: true,
 			want:                      false,
 		},
@@ -160,11 +171,11 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 				Data: &ethpb.AttestationData{
 					BeaconBlockRoot: validBlockRoot[:],
 					CommitteeIndex:  1,
-					Slot:            63,
+					Slot:            1,
 					Target:          &ethpb.Checkpoint{},
 				},
 			},
-			topic:                     fmt.Sprintf("/eth2/%x/committee_index1_beacon_attestation", digest),
+			topic:                     fmt.Sprintf("/eth2/%x/beacon_attestation_1", digest),
 			validAttestationSignature: false,
 			want:                      false,
 		},
@@ -172,6 +183,27 @@ func TestService_validateCommitteeIndexBeaconAttestation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			chain.ValidAttestation = tt.validAttestationSignature
+			if tt.validAttestationSignature {
+				com, err := helpers.BeaconCommitteeFromState(savedState, tt.msg.Data.Slot, tt.msg.Data.CommitteeIndex)
+				if err != nil {
+					t.Fatal(err)
+				}
+				domain, err := helpers.Domain(savedState.Fork(), tt.msg.Data.Target.Epoch, params.BeaconConfig().DomainBeaconAttester, savedState.GenesisValidatorRoot())
+				if err != nil {
+					t.Fatal(err)
+				}
+				attRoot, err := helpers.ComputeSigningRoot(tt.msg.Data, domain)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i := 0; ; i++ {
+					if tt.msg.AggregationBits.BitAt(uint64(i)) {
+						tt.msg.Signature = keys[com[i]].Sign(attRoot[:]).Marshal()
+						break
+					}
+				}
+			}
 			buf := new(bytes.Buffer)
 			_, err := p.Encoding().Encode(buf, tt.msg)
 			if err != nil {

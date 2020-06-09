@@ -5,59 +5,59 @@ import (
 	"testing"
 )
 
-func TestCommitteeIDCache_RoundTrip(t *testing.T) {
-	c := newCommitteeIDs()
+func TestSubnetIDsCache_RoundTrip(t *testing.T) {
+	c := newSubnetIDs()
 	slot := uint64(100)
-	committeeIDs := c.GetAggregatorCommitteeIDs(slot)
+	committeeIDs := c.GetAggregatorSubnetIDs(slot)
 	if len(committeeIDs) != 0 {
 		t.Errorf("Empty cache returned an object: %v", committeeIDs)
 	}
 
-	c.AddAggregatorCommiteeID(slot, 1)
-	res := c.GetAggregatorCommitteeIDs(slot)
+	c.AddAggregatorSubnetID(slot, 1)
+	res := c.GetAggregatorSubnetIDs(slot)
 	if !reflect.DeepEqual(res, []uint64{1}) {
 		t.Error("Expected equal value to return from cache")
 	}
 
-	c.AddAggregatorCommiteeID(slot, 2)
-	res = c.GetAggregatorCommitteeIDs(slot)
+	c.AddAggregatorSubnetID(slot, 2)
+	res = c.GetAggregatorSubnetIDs(slot)
 	if !reflect.DeepEqual(res, []uint64{1, 2}) {
 		t.Error("Expected equal value to return from cache")
 	}
 
-	c.AddAggregatorCommiteeID(slot, 3)
-	res = c.GetAggregatorCommitteeIDs(slot)
+	c.AddAggregatorSubnetID(slot, 3)
+	res = c.GetAggregatorSubnetIDs(slot)
 	if !reflect.DeepEqual(res, []uint64{1, 2, 3}) {
 		t.Error("Expected equal value to return from cache")
 	}
 
-	committeeIDs = c.GetAttesterCommitteeIDs(slot)
+	committeeIDs = c.GetAttesterSubnetIDs(slot)
 	if len(committeeIDs) != 0 {
 		t.Errorf("Empty cache returned an object: %v", committeeIDs)
 	}
 
-	c.AddAttesterCommiteeID(slot, 11)
-	res = c.GetAttesterCommitteeIDs(slot)
+	c.AddAttesterSubnetID(slot, 11)
+	res = c.GetAttesterSubnetIDs(slot)
 	if !reflect.DeepEqual(res, []uint64{11}) {
 		t.Error("Expected equal value to return from cache")
 	}
 
-	c.AddAttesterCommiteeID(slot, 22)
-	res = c.GetAttesterCommitteeIDs(slot)
+	c.AddAttesterSubnetID(slot, 22)
+	res = c.GetAttesterSubnetIDs(slot)
 	if !reflect.DeepEqual(res, []uint64{11, 22}) {
 		t.Error("Expected equal value to return from cache")
 	}
 
-	c.AddAttesterCommiteeID(slot, 33)
-	res = c.GetAttesterCommitteeIDs(slot)
+	c.AddAttesterSubnetID(slot, 33)
+	res = c.GetAttesterSubnetIDs(slot)
 	if !reflect.DeepEqual(res, []uint64{11, 22, 33}) {
 		t.Error("Expected equal value to return from cache")
 	}
 }
 
-func TestCommitteeIDs_PersistentCommitteeRoundtrip(t *testing.T) {
+func TestSubnetIDsCache_PersistentCommitteeRoundtrip(t *testing.T) {
 	pubkeySet := [][48]byte{}
-	c := newCommitteeIDs()
+	c := newSubnetIDs()
 
 	for i := 0; i < 20; i++ {
 		pubkey := [48]byte{byte(i)}
@@ -68,7 +68,7 @@ func TestCommitteeIDs_PersistentCommitteeRoundtrip(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		pubkey := [48]byte{byte(i)}
 
-		idxs, ok, _ := c.GetPersistentCommittees(pubkey[:])
+		idxs, ok, _ := c.GetPersistentSubnets(pubkey[:])
 		if !ok {
 			t.Errorf("Couldn't find entry in cache for pubkey %#x", pubkey)
 			continue
@@ -77,7 +77,7 @@ func TestCommitteeIDs_PersistentCommitteeRoundtrip(t *testing.T) {
 			t.Fatalf("Wanted index of %d but got %d", i, idxs[0])
 		}
 	}
-	coms := c.GetAllCommittees()
+	coms := c.GetAllSubnets()
 	if len(coms) != 20 {
 		t.Errorf("Number of committees is not %d but is %d", 20, len(coms))
 	}

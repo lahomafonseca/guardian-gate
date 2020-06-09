@@ -10,6 +10,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	eth "github.com/prysmaticlabs/ethereumapis/eth/v1alpha1"
 	"github.com/prysmaticlabs/prysm/beacon-chain/core/blocks"
+	"github.com/prysmaticlabs/prysm/beacon-chain/core/helpers"
 	"github.com/prysmaticlabs/prysm/beacon-chain/p2p"
 	"github.com/prysmaticlabs/prysm/shared/bytesutil"
 	"github.com/prysmaticlabs/prysm/shared/featureconfig"
@@ -19,7 +20,7 @@ import (
 
 // Validation
 // - The attestation's committee index (attestation.data.index) is for the correct subnet.
-// - The attestation is unaggregated -- that is, it has exactly one participating validator (len([bit for bit in attestation.aggregation_bits if bit == 0b1]) == 1).
+// - The attestation is unaggregated -- that is, it has exactly one participating validator (len(get_attesting_indices(state, attestation.data, attestation.aggregation_bits)) == 1).
 // - The block being voted for (attestation.data.beacon_block_root) passes validation.
 // - attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE slots (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= attestation.data.slot).
 // - The signature of attestation is valid.
@@ -57,6 +58,11 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 	if att.Data == nil {
 		return pubsub.ValidationReject
 	}
+	// Attestation aggregation bits must exist.
+	if att.AggregationBits == nil {
+		return pubsub.ValidationReject
+	}
+
 	// Verify this the first attestation received for the participating validator for the slot.
 	if s.hasSeenCommitteeIndicesSlot(att.Data.Slot, att.Data.CommitteeIndex, att.AggregationBits) {
 		return pubsub.ValidationIgnore
@@ -69,12 +75,34 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		traceutil.AnnotateError(span, err)
 		return pubsub.ValidationIgnore
 	}
-	if !strings.HasPrefix(originalTopic, fmt.Sprintf(format, digest, att.Data.CommitteeIndex)) {
+	preState, err := s.chain.AttestationPreState(ctx, att)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve pre state")
+		traceutil.AnnotateError(span, err)
+		return pubsub.ValidationIgnore
+	}
+	valCount, err := helpers.ActiveValidatorCount(preState, helpers.SlotToEpoch(att.Data.Slot))
+	if err != nil {
+		log.WithError(err).Error("Could not retrieve active validator count")
+		traceutil.AnnotateError(span, err)
+		return pubsub.ValidationIgnore
+	}
+	subnet := helpers.ComputeSubnetForAttestation(valCount, att)
+
+	if !strings.HasPrefix(originalTopic, fmt.Sprintf(format, digest, subnet)) {
+		return pubsub.ValidationReject
+	}
+
+	committee, err := helpers.BeaconCommitteeFromState(preState, att.Data.Slot, att.Data.CommitteeIndex)
+	if err != nil {
+		traceutil.AnnotateError(span, err)
 		return pubsub.ValidationIgnore
 	}
 
-	// Attestation must be unaggregated.
-	if att.AggregationBits == nil || att.AggregationBits.Count() != 1 {
+	// Attestation must be unaggregated and the bit index must exist in the range of committee indices.
+	// Note: eth2 spec suggests (len(get_attesting_indices(state, attestation.data, attestation.aggregation_bits)) == 1)
+	// however this validation can be achieved without use of get_attesting_indices which is an O(n) lookup.
+	if att.AggregationBits.Count() != 1 || att.AggregationBits.BitIndices()[0] >= len(committee) {
 		return pubsub.ValidationReject
 	}
 
@@ -95,12 +123,6 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		return pubsub.ValidationIgnore
 	}
 
-	preState, err := s.chain.AttestationPreState(ctx, att)
-	if err != nil {
-		log.WithError(err).Error("Failed to retrieve pre state")
-		traceutil.AnnotateError(span, err)
-		return pubsub.ValidationIgnore
-	}
 	// Attestation's signature is a valid BLS signature and belongs to correct public key..
 	if !featureconfig.Get().DisableStrictAttestationPubsubVerification {
 		if err := blocks.VerifyAttestation(ctx, preState, att); err != nil {
