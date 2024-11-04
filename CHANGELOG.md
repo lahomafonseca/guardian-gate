@@ -19,6 +19,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Added ListAttestationsV2 endpoint.
 - Add ability to rollback node's internal state during processing.
 - Change how unsafe protobuf state is created to prevent unnecessary copies.
+- Added benchmarks for process slots for Capella, Deneb, Electra
 
 ### Changed
 
