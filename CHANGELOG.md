@@ -53,6 +53,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Fixed panic when http request to subscribe to event stream fails.
 - Return early for blob reconstructor during capella fork
 - Updated block endpoint from V1 to V2
+- Rename instances of "deposit receipts" to "deposit requests".
 
 ### Deprecated
 
