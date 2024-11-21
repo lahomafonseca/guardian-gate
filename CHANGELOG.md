@@ -59,6 +59,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Non-blocking payload attribute event handling in beacon api [pr](https://github.com/prysmaticlabs/prysm/pull/14644).
 - Updated light client protobufs. [PR](https://github.com/prysmaticlabs/prysm/pull/14650)
 - Added `Eth-Consensus-Version` header to `ListAttestationsV2` and `GetAggregateAttestationV2` endpoints.
+- Updated light client consensus types. [PR](https://github.com/prysmaticlabs/prysm/pull/14652)
 
 ### Deprecated
 
