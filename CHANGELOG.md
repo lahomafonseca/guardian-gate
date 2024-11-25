@@ -27,6 +27,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Added validator index label to `validator_statuses` metric.
 - Added Validator REST mode use of Attestation V2 endpoints and Electra attestations.
 - PeerDAS: Added proto for `DataColumnIdentifier`, `DataColumnSidecar`, `DataColumnSidecarsByRangeRequest` and `MetadataV2`.
+- Better attestation packing for Electra. [PR](https://github.com/prysmaticlabs/prysm/pull/14534)
 
 ### Changed
 
