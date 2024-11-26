@@ -64,6 +64,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Added `Eth-Consensus-Version` header to `ListAttestationsV2` and `GetAggregateAttestationV2` endpoints.
 - Updated light client consensus types. [PR](https://github.com/prysmaticlabs/prysm/pull/14652)
 - Fixed pending deposits processing on Electra.
+- Modified `ListAttestationsV2`, `GetAttesterSlashingsV2` and `GetAggregateAttestationV2` endpoints to use slot to determine fork version.
 
 ### Deprecated
 
