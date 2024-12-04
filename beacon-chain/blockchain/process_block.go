@@ -67,7 +67,10 @@ func (s *Service) postBlockProcess(cfg *postBlockProcessConfig) error {
 	if s.inRegularSync() {
 		defer s.handleSecondFCUCall(cfg, fcuArgs)
 	}
-	defer s.sendLightClientFeeds(cfg)
+	if features.Get().EnableLightClient && slots.ToEpoch(s.CurrentSlot()) >= params.BeaconConfig().AltairForkEpoch {
+		defer s.processLightClientUpdates(cfg)
+		defer s.saveLightClientUpdate(cfg)
+	}
 	defer s.sendStateFeedOnBlock(cfg)
 	defer reportProcessingTime(startTime)
 	defer reportAttestationInclusion(cfg.roblock.Block())

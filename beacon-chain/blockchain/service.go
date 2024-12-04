@@ -36,9 +36,7 @@ import (
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
-	consensus_blocks "github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/interfaces"
-	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v5/encoding/bytesutil"
 	"github.com/prysmaticlabs/prysm/v5/monitoring/tracing/trace"
 	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
@@ -49,25 +47,24 @@ import (
 // Service represents a service that handles the internal
 // logic of managing the full PoS beacon chain.
 type Service struct {
-	cfg                           *config
-	ctx                           context.Context
-	cancel                        context.CancelFunc
-	genesisTime                   time.Time
-	head                          *head
-	headLock                      sync.RWMutex
-	originBlockRoot               [32]byte // genesis root, or weak subjectivity checkpoint root, depending on how the node is initialized
-	boundaryRoots                 [][32]byte
-	checkpointStateCache          *cache.CheckpointStateCache
-	initSyncBlocks                map[[32]byte]interfaces.ReadOnlySignedBeaconBlock
-	initSyncBlocksLock            sync.RWMutex
-	wsVerifier                    *WeakSubjectivityVerifier
-	clockSetter                   startup.ClockSetter
-	clockWaiter                   startup.ClockWaiter
-	syncComplete                  chan struct{}
-	blobNotifiers                 *blobNotifierMap
-	blockBeingSynced              *currentlySyncingBlock
-	blobStorage                   *filesystem.BlobStorage
-	lastPublishedLightClientEpoch primitives.Epoch
+	cfg                  *config
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	genesisTime          time.Time
+	head                 *head
+	headLock             sync.RWMutex
+	originBlockRoot      [32]byte // genesis root, or weak subjectivity checkpoint root, depending on how the node is initialized
+	boundaryRoots        [][32]byte
+	checkpointStateCache *cache.CheckpointStateCache
+	initSyncBlocks       map[[32]byte]interfaces.ReadOnlySignedBeaconBlock
+	initSyncBlocksLock   sync.RWMutex
+	wsVerifier           *WeakSubjectivityVerifier
+	clockSetter          startup.ClockSetter
+	clockWaiter          startup.ClockWaiter
+	syncComplete         chan struct{}
+	blobNotifiers        *blobNotifierMap
+	blockBeingSynced     *currentlySyncingBlock
+	blobStorage          *filesystem.BlobStorage
 }
 
 // config options for the service.
@@ -308,7 +305,7 @@ func (s *Service) StartFromSavedState(saved state.BeaconState) error {
 	if err != nil {
 		return errors.Wrap(err, "could not get finalized checkpoint block")
 	}
-	roblock, err := consensus_blocks.NewROBlockWithRoot(finalizedBlock, fRoot)
+	roblock, err := blocks.NewROBlockWithRoot(finalizedBlock, fRoot)
 	if err != nil {
 		return err
 	}
@@ -524,7 +521,7 @@ func (s *Service) saveGenesisData(ctx context.Context, genesisState state.Beacon
 
 	s.cfg.ForkChoiceStore.Lock()
 	defer s.cfg.ForkChoiceStore.Unlock()
-	gb, err := consensus_blocks.NewROBlockWithRoot(genesisBlk, genesisBlkRoot)
+	gb, err := blocks.NewROBlockWithRoot(genesisBlk, genesisBlkRoot)
 	if err != nil {
 		return err
 	}
