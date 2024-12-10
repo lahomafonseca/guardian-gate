@@ -115,6 +115,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Fixed another rollback bug due to a context deadline.
 - Fix checkpoint sync bug on holesky. [pr](https://github.com/prysmaticlabs/prysm/pull/14689)
 - Fix segmentation fault in E2E when light-client feature flag is enabled. [PR](https://github.com/prysmaticlabs/prysm/pull/14699)
+- Fix `searchForPeers` infinite loop in small networks.
 
 
 ### Security
