@@ -32,6 +32,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Added a Prometheus error counter metric for HTTP requests to track beacon node requests.
 - Added a Prometheus error counter metric for SSE requests.
 - Save light client updates and bootstraps in DB.
+- Added more comprehensive tests for `BlockToLightClientHeader`. [PR](https://github.com/prysmaticlabs/prysm/pull/14699)
 
 ### Changed
 
@@ -112,6 +113,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - P2P: Avoid infinite loop when looking for peers in small networks.
 - Fixed another rollback bug due to a context deadline.
 - Fix checkpoint sync bug on holesky. [pr](https://github.com/prysmaticlabs/prysm/pull/14689)
+- Fix segmentation fault in E2E when light-client feature flag is enabled. [PR](https://github.com/prysmaticlabs/prysm/pull/14699)
 
 
 ### Security
