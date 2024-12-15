@@ -36,6 +36,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Added proper gas limit check for header from the builder.
 - Added an error field to log `Finished building block`.
 - Implemented a new `EmptyExecutionPayloadHeader` function.
+- `Finished building block`: Display error only if not nil.
 
 ### Changed
 
