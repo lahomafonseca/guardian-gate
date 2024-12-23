@@ -14,7 +14,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - `Finished building block`: Display error only if not nil.
 - Added support to update target and max blob count to different values per hard fork config.
 - Log before blob filesystem cache warm-up.
-- 
+- New design for the attestation pool. [PR](https://github.com/prysmaticlabs/prysm/pull/14324)
+
 ### Changed
 
 - Process light client finality updates only for new finalized epochs instead of doing it for every block.
