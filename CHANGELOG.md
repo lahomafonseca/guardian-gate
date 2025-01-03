@@ -32,6 +32,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Use 16-bit random value for proposer and sync committee selection filter.
 - Re-organize the content of the `*.proto` files (No functional change).
 - Updated Electra spec definition for `process_epoch`.
+- Update our `go-libp2p-pubsub` dependency.
 
 ### Deprecated
 
