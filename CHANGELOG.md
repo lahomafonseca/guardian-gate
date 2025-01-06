@@ -32,6 +32,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Limit consolidating by validator's effective balance.
 - Use 16-bit random value for proposer and sync committee selection filter.
 - Re-organize the content of the `*.proto` files (No functional change).
+- Updated spec definitions for `process_slashings` in godocs. Simplified `ProcessSlashings` API.
 - Updated spec definition electra `process_registry_updates`.
 - Updated Electra spec definition for `process_epoch`.
 - Update our `go-libp2p-pubsub` dependency.
