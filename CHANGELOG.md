@@ -40,6 +40,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Update our `go-libp2p-pubsub` dependency.
 - Re-organize the content of files to ease the creation of a new fork boilerplate.
 - Fixed Metadata errors for peers connected via QUIC.
+- Process light client finality updates only for new finalized epochs instead of doing it for every block.
 
 ### Deprecated
 
