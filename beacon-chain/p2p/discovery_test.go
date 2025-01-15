@@ -357,7 +357,7 @@ func TestHostIsResolved(t *testing.T) {
 	// As defined in RFC 2606 , example.org is a
 	// reserved example domain name.
 	exampleHost := "example.org"
-	exampleIP := "93.184.215.14"
+	exampleIP := "96.7.129.13"
 
 	s := &Service{
 		cfg: &Config{
