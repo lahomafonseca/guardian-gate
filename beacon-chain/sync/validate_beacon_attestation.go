@@ -34,7 +34,11 @@ import (
 // - The attestation is unaggregated -- that is, it has exactly one participating validator (len(get_attesting_indices(state, attestation.data, attestation.aggregation_bits)) == 1).
 // - attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE slots (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= attestation.data.slot).
 // - The signature of attestation is valid.
-func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, pid peer.ID, msg *pubsub.Message) (pubsub.ValidationResult, error) {
+func (s *Service) validateCommitteeIndexBeaconAttestation(
+	ctx context.Context,
+	pid peer.ID,
+	msg *pubsub.Message,
+) (pubsub.ValidationResult, error) {
 	if pid == s.cfg.p2p.PeerID() {
 		return pubsub.ValidationAccept, nil
 	}
@@ -64,6 +68,7 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 	if err := helpers.ValidateNilAttestation(att); err != nil {
 		return pubsub.ValidationReject, err
 	}
+
 	data := att.GetData()
 
 	// Do not process slot 0 attestations.
@@ -73,8 +78,7 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 
 	// Attestation's slot is within ATTESTATION_PROPAGATION_SLOT_RANGE and early attestation
 	// processing tolerance.
-	if err := helpers.ValidateAttestationTime(data.Slot, s.cfg.clock.GenesisTime(),
-		earlyAttestationProcessingTolerance); err != nil {
+	if err := helpers.ValidateAttestationTime(data.Slot, s.cfg.clock.GenesisTime(), earlyAttestationProcessingTolerance); err != nil {
 		tracing.AnnotateError(span, err)
 		return pubsub.ValidationIgnore, err
 	}
@@ -89,7 +93,6 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		if s.hasSeenCommitteeIndicesSlot(data.Slot, committeeIndex, att.GetAggregationBits()) {
 			return pubsub.ValidationIgnore, nil
 		}
-
 		// Reject an attestation if it references an invalid block.
 		if s.hasBadBlock(bytesutil.ToBytes32(data.BeaconBlockRoot)) ||
 			s.hasBadBlock(bytesutil.ToBytes32(data.Target.Root)) ||
@@ -99,15 +102,12 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		}
 	}
 
-	var validationRes pubsub.ValidationResult
-
 	// Verify the block being voted and the processed state is in beaconDB and the block has passed validation if it's in the beaconDB.
 	blockRoot := bytesutil.ToBytes32(data.BeaconBlockRoot)
 	if !s.hasBlockAndState(ctx, blockRoot) {
 		return s.saveToPendingAttPool(att)
 	}
-
-	if !s.cfg.chain.InForkchoice(bytesutil.ToBytes32(data.BeaconBlockRoot)) {
+	if !s.cfg.chain.InForkchoice(blockRoot) {
 		tracing.AnnotateError(span, blockchain.ErrNotDescendantOfFinalized)
 		return pubsub.ValidationIgnore, blockchain.ErrNotDescendantOfFinalized
 	}
@@ -123,12 +123,12 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		return pubsub.ValidationIgnore, err
 	}
 
-	validationRes, err = s.validateUnaggregatedAttTopic(ctx, att, preState, *msg.Topic)
+	validationRes, err := s.validateUnaggregatedAttTopic(ctx, att, preState, *msg.Topic)
 	if validationRes != pubsub.ValidationAccept {
 		return validationRes, err
 	}
 
-	committee, err := helpers.BeaconCommitteeFromState(ctx, preState, att.GetData().Slot, committeeIndex)
+	committee, err := helpers.BeaconCommitteeFromState(ctx, preState, data.Slot, committeeIndex)
 	if err != nil {
 		tracing.AnnotateError(span, err)
 		return pubsub.ValidationIgnore, err
@@ -139,16 +139,37 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		return validationRes, err
 	}
 
-	var singleAtt *eth.SingleAttestation
+	// Consolidated handling of Electra SingleAttestation vs Phase0 unaggregated attestation
+	var (
+		attForValidation eth.Att // what we'll pass to further validation
+		eventType        feed.EventType
+		eventData        interface{}
+	)
+
 	if att.Version() >= version.Electra {
-		singleAtt, ok = att.(*eth.SingleAttestation)
+		singleAtt, ok := att.(*eth.SingleAttestation)
 		if !ok {
-			return pubsub.ValidationIgnore, fmt.Errorf("attestation has wrong type (expected %T, got %T)", &eth.SingleAttestation{}, att)
+			return pubsub.ValidationIgnore, fmt.Errorf(
+				"attestation has wrong type (expected %T, got %T)",
+				&eth.SingleAttestation{}, att,
+			)
 		}
-		att = singleAtt.ToAttestationElectra(committee)
+		// Convert Electra SingleAttestation to unaggregated ElectraAttestation. This is needed because many parts of the codebase assume that attestations have a certain structure and SingleAttestation validates these assumptions.
+		attForValidation = singleAtt.ToAttestationElectra(committee)
+		eventType = operation.SingleAttReceived
+		eventData = &operation.SingleAttReceivedData{
+			Attestation: singleAtt,
+		}
+	} else {
+		// Phase0 unaggregated attestation
+		attForValidation = att
+		eventType = operation.UnaggregatedAttReceived
+		eventData = &operation.UnAggregatedAttReceivedData{
+			Attestation: att,
+		}
 	}
 
-	validationRes, err = s.validateUnaggregatedAttWithState(ctx, att, preState)
+	validationRes, err = s.validateUnaggregatedAttWithState(ctx, attForValidation, preState)
 	if validationRes != pubsub.ValidationAccept {
 		return validationRes, err
 	}
@@ -172,7 +193,7 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 				tracing.AnnotateError(span, err)
 				return
 			}
-			indexedAtt, err := attestation.ConvertToIndexed(ctx, att, committee)
+			indexedAtt, err := attestation.ConvertToIndexed(ctx, attForValidation, committee)
 			if err != nil {
 				log.WithError(err).Error("Could not convert to indexed attestation")
 				tracing.AnnotateError(span, err)
@@ -182,27 +203,16 @@ func (s *Service) validateCommitteeIndexBeaconAttestation(ctx context.Context, p
 		}()
 	}
 
-	// Broadcast the unaggregated attestation on a feed to notify other services in the beacon node
-	// of a received unaggregated attestation.
-	if singleAtt != nil {
-		s.cfg.attestationNotifier.OperationFeed().Send(&feed.Event{
-			Type: operation.SingleAttReceived,
-			Data: &operation.SingleAttReceivedData{
-				Attestation: singleAtt,
-			},
-		})
-	} else {
-		s.cfg.attestationNotifier.OperationFeed().Send(&feed.Event{
-			Type: operation.UnaggregatedAttReceived,
-			Data: &operation.UnAggregatedAttReceivedData{
-				Attestation: att,
-			},
-		})
-	}
+	// Notify other services in the beacon node
+	s.cfg.attestationNotifier.OperationFeed().Send(&feed.Event{
+		Type: eventType,
+		Data: eventData,
+	})
 
-	s.setSeenCommitteeIndicesSlot(data.Slot, committeeIndex, att.GetAggregationBits())
+	s.setSeenCommitteeIndicesSlot(data.Slot, committeeIndex, attForValidation.GetAggregationBits())
 
-	msg.ValidatorData = att
+	// Attach final validated attestation to the message for further pipeline use
+	msg.ValidatorData = attForValidation
 
 	return pubsub.ValidationAccept, nil
 }
