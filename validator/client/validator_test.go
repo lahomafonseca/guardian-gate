@@ -1311,9 +1311,9 @@ func TestValidator_WaitForKeymanagerInitialization_web3Signer(t *testing.T) {
 			set.String(flags.WalletDirFlag.Name, newDir, "")
 			w := wallet.NewWalletForWeb3Signer(cli.NewContext(&app, set, nil))
 			v := validator{
-				db:     db,
-				useWeb: false,
-				wallet: w,
+				db:        db,
+				enableAPI: false,
+				wallet:    w,
 				web3SignerConfig: &remoteweb3signer.SetupConfig{
 					BaseEndpoint:       "http://localhost:8545",
 					ProvidedPublicKeys: []string{"0xa2b5aaad9c6efefe7bb9b1243a043404f3362937cfb6b31833929833173f476630ea2cfeb0d9ddf15f97ca8685948820"},
@@ -1340,7 +1340,7 @@ func TestValidator_WaitForKeymanagerInitialization_Web(t *testing.T) {
 			walletChan := make(chan *wallet.Wallet, 1)
 			v := validator{
 				db:                    db,
-				useWeb:                true,
+				enableAPI:             true,
 				walletInitializedFeed: &event.Feed{},
 				walletInitializedChan: walletChan,
 			}
@@ -1372,8 +1372,8 @@ func TestValidator_WaitForKeymanagerInitialization_Interop(t *testing.T) {
 			err := db.SaveGenesisValidatorsRoot(ctx, root)
 			require.NoError(t, err)
 			v := validator{
-				db:     db,
-				useWeb: false,
+				db:        db,
+				enableAPI: false,
 				interopKeysConfig: &local.InteropKeymanagerConfig{
 					NumValidatorKeys: 2,
 					Offset:           1,
@@ -1460,7 +1460,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 2,
 							Offset:           1,
@@ -1551,7 +1551,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 2,
 							Offset:           1,
@@ -1637,7 +1637,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 2,
 							Offset:           1,
@@ -1707,7 +1707,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 1,
 							Offset:           1,
@@ -1780,7 +1780,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 1,
 							Offset:           1,
@@ -1849,7 +1849,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 1,
 							Offset:           1,
@@ -1906,7 +1906,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 1,
 							Offset:           1,
@@ -1953,7 +1953,7 @@ func TestValidator_PushSettings(t *testing.T) {
 						db:                           db,
 						pubkeyToStatus:               make(map[[fieldparams.BLSPubkeyLength]byte]*validatorStatus),
 						signedValidatorRegistrations: make(map[[fieldparams.BLSPubkeyLength]byte]*ethpb.SignedValidatorRegistrationV1),
-						useWeb:                       false,
+						enableAPI:                    false,
 						interopKeysConfig: &local.InteropKeymanagerConfig{
 							NumValidatorKeys: 1,
 							Offset:           1,
